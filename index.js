@@ -46,6 +46,7 @@ const adapter = new (class PhiliaAdapter {
       ...config.bot[id],
       logger,
     })
+    Object.defineProperty(bot, "version", { get: () => bot.version_info.impl })
 
     await bot.login()
     Bot[id] = bot
@@ -63,7 +64,7 @@ const adapter = new (class PhiliaAdapter {
       Bot.em(`${data.post_type}.${data.request_type}.${data.sub_type}`, data),
     )
 
-    logger.mark(`${this.name}(${this.id}) ${this.version} 已连接`)
+    logger.mark(`${bot.version?.name}(${bot.version?.id}) ${bot.version?.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
     return true
   }
