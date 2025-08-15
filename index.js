@@ -1,10 +1,13 @@
+const logger = Object.create(global.logger)
+for (const i of ["trace", "debug", "info", "mark", "warn", "error", "fatal"])
+  logger[i] = (...args) => Bot.makeLog(i, args, "Philia")
 logger.info(logger.yellow("- 正在加载 Philia 适配器插件"))
 
 import Path from "node:path"
 import cfg from "../../lib/config/config.js"
 import makeConfig from "../../lib/plugins/config.js"
 import * as Connect from "philia/connect"
-import oicq from "philia/protocol/oicq/client"
+import oicq from "philia/protocol/oicq"
 import pkg from "philia/package.json" with { type: "json" }
 
 const { config, configSave } = await makeConfig(
@@ -32,15 +35,17 @@ const adapter = new (class PhiliaAdapter {
 
   async login(client, send = Bot.sendMasterMsg.bind(Bot)) {
     const { id } = await client.request("getSelfInfo")
+    const logger = {}
+    for (const i of ["trace", "debug", "info", "mark", "warn", "error", "fatal"])
+      logger[i] = (...args) => Bot.makeLog(i, args, id)
+    client.logger = logger
+
     const bot = oicq.createClient(client, {
       cache_group_member: cfg.bot.cache_group_member,
       ...config.bot,
       ...config.bot[id],
+      logger,
     })
-
-    for (const i of ["trace", "debug", "info", "mark", "warn", "error", "fatal"])
-      bot.logger[i] = (...args) => Bot.makeLog(i, args, id)
-    client.logger = bot.logger
 
     await bot.login()
     Bot[id] = bot
@@ -58,18 +63,18 @@ const adapter = new (class PhiliaAdapter {
       Bot.em(`${data.post_type}.${data.request_type}.${data.sub_type}`, data),
     )
 
-    Bot.makeLog("mark", `${this.name}(${this.id}) ${this.version} 已连接`, id)
+    logger.mark(`${this.name}(${this.id}) ${this.version} 已连接`)
     Bot.em(`connect.${id}`, { self_id: id })
     return true
   }
 
   async connect(config, send) {
     if (config.role === "Client") {
-      const client = new Connect[config.type].Client(this.handles, config.opts)
+      const client = new Connect[config.type].Client(logger, this.handles, config.opts)
       await client.connect(config.path)
       return this.login(client, send)
     } else {
-      this.server = new Connect[config.type].Server(this.handles, {
+      this.server = new Connect[config.type].Server(logger, this.handles, {
         ...config.opts,
         onconnected: client => this.login(client, send),
       })
@@ -81,7 +86,7 @@ const adapter = new (class PhiliaAdapter {
     for (const connect of config.connect)
       await Bot.sleep(
         5000,
-        this.connect(connect).catch(error => Bot.makeLog("error", { ...connect, error }, "Philia")),
+        this.connect(connect).catch(error => logger.error({ ...connect, error })),
       )
   }
 })()
@@ -193,6 +198,7 @@ export class PhiliaAdapter extends plugin {
     try {
       await adapter.connect(connect, this.reply.bind(this))
     } catch (err) {
+      logger.error(err)
       return this.reply(`错误：${err.message}`)
     }
     config.connect.push(connect)

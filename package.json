@@ -1,5 +1,8 @@
 {
   "name": "Philia-Plugin",
   "type": "module",
-  "author": "TimeRainStarSky"
+  "author": "TimeRainStarSky",
+  "dependencies": {
+    "philia": "link:Philia"
+  }
 }
