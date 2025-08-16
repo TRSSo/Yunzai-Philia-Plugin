@@ -12,10 +12,17 @@ TRSS-Yunzai Philia 适配器 插件
 
 ## 安装教程
 
-1. 准备：[TRSS-Yunzai](../../../Yunzai) 和 [Philia](../../../Philia)
-2. 输入：`#安装Philia-Plugin`
-3. 退出，终端输入：`pnpm add philia@link:[Philia安装路径]`
-4. 启动，输入：`#Philia设置`
+1. 准备：[TRSS-Yunzai](../../../../TimeRainStarSky/Yunzai) 和 [Philia](../../../Philia)
+2. 终端输入：
+
+```sh
+git clone --depth 1 https://gitee.com/TRSSo/Yunzai-Philia-Plugin plugins/Philia-Plugin
+cd plugins/Philia-Plugin
+pnpm i philia@link:Philia安装路径
+cd ../..
+```
+
+3. 启动，输入：`#Philia设置`
 
 ## 使用教程
 
