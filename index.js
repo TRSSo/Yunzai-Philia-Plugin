@@ -4,11 +4,11 @@ for (const i of ["trace", "debug", "info", "mark", "warn", "error", "fatal"])
 logger.info(logger.yellow("- 正在加载 Philia 适配器插件"))
 
 import Path from "node:path"
+import * as Connect from "philia/connect"
+import pkg from "philia/package.json" with { type: "json" }
+import oicq from "philia/protocol/oicq"
 import cfg from "../../lib/config/config.js"
 import makeConfig from "../../lib/plugins/config.js"
-import * as Connect from "philia/connect"
-import oicq from "philia/protocol/oicq"
-import pkg from "philia/package.json" with { type: "json" }
 
 const { config, configSave } = await makeConfig(
   "Philia",
@@ -33,7 +33,7 @@ const adapter = new (class PhiliaAdapter {
     this.version = `v${pkg.version}`
   }
 
-  async login(client, send = Bot.sendMasterMsg.bind(Bot)) {
+  async login(client, send = Bot.sendMasterMsg.bind(Bot), is_server) {
     const { id } = await client.request("getSelfInfo")
     const logger = {}
     for (const i of ["trace", "debug", "info", "mark", "warn", "error", "fatal"])
@@ -53,7 +53,16 @@ const adapter = new (class PhiliaAdapter {
 
     bot.on("system.offline", data => {
       Bot.em("system.offline", data)
-      send(`[${id}] 断开连接：${data.message}`)
+      send(`[${id}] ${data.message}`)
+      if (is_server)
+        Bot.uin.some((i, index) => {
+          if (Bot[i].client === client) {
+            Bot.uin.splice(index, 1)
+            delete Bot[i]
+            return true
+          }
+          return false
+        })
     })
 
     bot.on("message", data =>
@@ -77,7 +86,7 @@ const adapter = new (class PhiliaAdapter {
     } else {
       this.server = new Connect[config.type].Server(logger, this.handles, {
         ...config.opts,
-        onconnected: client => this.login(client, send),
+        connected_fn: client => this.login(client, send, true),
       })
       await this.server.listen(config.path ?? Path.resolve("Philia"))
     }
