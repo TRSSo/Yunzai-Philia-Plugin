@@ -6,7 +6,9 @@ logger.info(logger.yellow("- 正在加载 Philia 适配器插件"))
 import Path from "node:path"
 import * as Connect from "philia/connect"
 import pkg from "philia/package.json" with { type: "json" }
+import { Project } from "philia/project/project/philia.js"
 import oicq from "philia/protocol/oicq"
+import { getProjectDir } from "philia/util"
 import cfg from "../../lib/config/config.js"
 import makeConfig from "../../lib/plugins/config.js"
 
@@ -80,15 +82,19 @@ const adapter = new (class PhiliaAdapter {
 
   async connect(config, send) {
     if (config.role === "Client") {
+      let path = config.path
+      if (path.startsWith("file://")) path = path.slice(7)
+      else if (!path.startsWith("tcp://")) path = getProjectDir(path, config.name || "Philia")
+
       const client = new Connect[config.type].Client(logger, this.handles, config.opts)
-      await client.connect(config.path)
+      await client.connect(path)
       return this.login(client, send)
     } else {
       this.server = new Connect[config.type].Server(logger, this.handles, {
         ...config.opts,
         connected_fn: client => this.login(client, send, true),
       })
-      await this.server.listen(config.path ?? Path.resolve("Philia"))
+      await this.server.listen(config.path ?? Path.resolve(config.name || "Philia"))
     }
   }
 
@@ -146,7 +152,7 @@ export class PhiliaAdapter extends plugin {
 
   async Set() {
     const get = async () =>
-      (await this.awaitContext()).message.reduce((a, b) => (b.type === "text" ? a + b.text : a), "")
+      (await this.awaitContext()).message.reduce((a, b) => (b.type === "text" ? a + b.text : a), "").trim()
     const connect = {}
     await this.reply("请选择 Philia 协议类型\n1. Socket\n2. WebSocket")
     let choose = await get()
@@ -185,8 +191,20 @@ export class PhiliaAdapter extends plugin {
         if (connect.role === "Server") {
           await this.reply(`Philia Socket 服务器监听在 ${Path.resolve("Philia")}`)
         } else {
-          await this.reply("请输入 Philia Socket 服务器地址")
-          connect.path = await get()
+          const list = await Project.getClientProject("Impl")
+          let msg = "请选择 Philia Socket 服务器地址\n0. 自定义"
+          for (const i in list) msg += `\n${Number(i) + 1}. ${list[i][1]}`
+          await this.reply(msg)
+          const choose = await get()
+          if (choose === "0") {
+            await this.reply("请输入 Philia Socket 服务器地址")
+            connect.path = await get()
+            if (connect.path && !connect.path.startsWith("tcp://"))
+              connect.path = `file://${connect.path}`
+          } else {
+            connect.path = list[Number(choose) - 1][0]
+          }
+          if (!connect.path) return this.reply("请输入正确的地址")
         }
         break
       case "WebSocket":
@@ -206,6 +224,7 @@ export class PhiliaAdapter extends plugin {
     )
       return this.reply("已存在相同连接")
     try {
+      await this.reply("正在连接中...")
       await adapter.connect(connect, this.reply.bind(this))
     } catch (err) {
       logger.error(err)
