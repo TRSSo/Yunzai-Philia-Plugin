@@ -9,6 +9,7 @@ import pkg from "philia/package.json" with { type: "json" }
 import { Project } from "philia/project/project/philia.js"
 import oicq from "philia/protocol/oicq"
 import { getProjectDir } from "philia/util"
+import { ulid } from "ulid"
 import cfg from "../../lib/config/config.js"
 import makeConfig from "../../lib/plugins/config.js"
 
@@ -152,8 +153,11 @@ export class PhiliaAdapter extends plugin {
 
   async Set() {
     const get = async () =>
-      (await this.awaitContext()).message.reduce((a, b) => (b.type === "text" ? a + b.text : a), "").trim()
-    const connect = {}
+      (await this.awaitContext()).message
+        .reduce((a, b) => (b.type === "text" ? a + b.text : a), "")
+        .trim()
+    const connect = { opts: { meta: { id: ulid() } } }
+
     await this.reply("请选择 Philia 协议类型\n1. Socket\n2. WebSocket")
     let choose = await get()
     switch (choose) {
